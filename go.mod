@@ -2,6 +2,12 @@ module github.com/longhorn/longhorn-instance-manager
 
 go 1.22.2
 
+replace (
+	github.com/longhorn/go-spdk-helper => github.com/shuo-wu/go-spdk-helper v0.0.0-20240516043145-968448f04f51
+	github.com/longhorn/longhorn-spdk-engine => github.com/shuo-wu/longhorn-spdk-engine v0.0.0-20240523063358-90853e93819f
+	github.com/longhorn/types => github.com/shuo-wu/types v0.0.0-20240516043003-09838e4776cb
+)
+
 require (
 	github.com/RoaringBitmap/roaring v1.9.3
 	github.com/google/uuid v1.6.0
@@ -65,7 +71,7 @@ require (
 	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240429193739-8cf5692501f6 // indirect
-	k8s.io/apimachinery v0.30.0 // indirect
+	k8s.io/apimachinery v0.30.1 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b // indirect
 )

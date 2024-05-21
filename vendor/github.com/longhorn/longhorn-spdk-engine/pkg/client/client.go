@@ -53,7 +53,7 @@ func NewSPDKClient(serviceURL string) (*SPDKClient, error) {
 	}, nil
 }
 
-func (c *SPDKClient) ReplicaCreate(name, lvsName, lvsUUID string, specSize uint64, exposeRequired bool, portCount int32) (*api.Replica, error) {
+func (c *SPDKClient) ReplicaCreate(name, lvsName, lvsUUID string, specSize uint64, portCount int32) (*api.Replica, error) {
 	if name == "" || lvsName == "" || lvsUUID == "" {
 		return nil, fmt.Errorf("failed to start SPDK replica: missing required parameters")
 	}
@@ -63,12 +63,11 @@ func (c *SPDKClient) ReplicaCreate(name, lvsName, lvsUUID string, specSize uint6
 	defer cancel()
 
 	resp, err := client.ReplicaCreate(ctx, &spdkrpc.ReplicaCreateRequest{
-		Name:           name,
-		LvsName:        lvsName,
-		LvsUuid:        lvsUUID,
-		SpecSize:       specSize,
-		ExposeRequired: exposeRequired,
-		PortCount:      portCount,
+		Name:      name,
+		LvsName:   lvsName,
+		LvsUuid:   lvsUUID,
+		SpecSize:  specSize,
+		PortCount: portCount,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start SPDK replica")
@@ -187,24 +186,28 @@ func (c *SPDKClient) ReplicaSnapshotRevert(name, snapshotName string) error {
 	return errors.Wrapf(err, "failed to revert SPDK replica %s snapshot %s", name, snapshotName)
 }
 
-func (c *SPDKClient) ReplicaRebuildingSrcStart(srcReplicaName, dstReplicaName, dstRebuildingLvolAddress string) error {
+// ReplicaRebuildingSrcStart asks the source replicas to find out the parent snapshot of the head and expose it as a NVMf bdev if necessary.
+// If the source replica and the destination replicas have different IPs, the API will expose the snapshot lvol as a NVMf bdev and return the address <IP>:<Port>.
+// Otherwise, the API will directly return the snapshot lvol alias.
+func (c *SPDKClient) ReplicaRebuildingSrcStart(srcReplicaName, dstReplicaName, srcSnapshotName string, isSrcDstOnSameHost bool) (srcSnapshotLvolAddress string, err error) {
 	if srcReplicaName == "" {
-		return fmt.Errorf("failed to start replica rebuilding src: missing required parameter src replica name")
+		return "", fmt.Errorf("failed to start replica rebuilding src: missing required parameter src replica name")
 	}
-	if dstReplicaName == "" || dstRebuildingLvolAddress == "" {
-		return fmt.Errorf("failed to start replica rebuilding src: missing required parameter dst replica name or dst rebuilding lvol address")
+	if dstReplicaName == "" || srcSnapshotName == "" {
+		return "", fmt.Errorf("failed to start replica rebuilding src: missing required parameter dst replica name or src snapshot name")
 	}
 
 	client := c.getSPDKServiceClient()
 	ctx, cancel := context.WithTimeout(context.Background(), GRPCServiceTimeout)
 	defer cancel()
 
-	_, err := client.ReplicaRebuildingSrcStart(ctx, &spdkrpc.ReplicaRebuildingSrcStartRequest{
-		Name:                     srcReplicaName,
-		DstReplicaName:           dstReplicaName,
-		DstRebuildingLvolAddress: dstRebuildingLvolAddress,
+	resp, err := client.ReplicaRebuildingSrcStart(ctx, &spdkrpc.ReplicaRebuildingSrcStartRequest{
+		Name:               srcReplicaName,
+		DstReplicaName:     dstReplicaName,
+		SrcSnapshotName:    srcSnapshotName,
+		IsSrcDstOnSameHost: isSrcDstOnSameHost,
 	})
-	return errors.Wrapf(err, "failed to start replica rebuilding src %s for rebuilding replica %s", srcReplicaName, dstReplicaName)
+	return resp.SrcSnapshotLvolAddress, errors.Wrapf(err, "failed to start replica rebuilding src %s for rebuilding replica %s", srcReplicaName, dstReplicaName)
 }
 
 func (c *SPDKClient) ReplicaRebuildingSrcFinish(srcReplicaName, dstReplicaName string) error {
@@ -281,12 +284,15 @@ func (c *SPDKClient) ReplicaSnapshotShallowCopy(srcReplicaName, snapshotName str
 	return errors.Wrapf(err, "failed to shallow copy snapshot %s from src replica %s", snapshotName, srcReplicaName)
 }
 
-// ReplicaRebuildingDstStart asks the rebuilding replicas to expose the rebuilding lvol as a nvmf bdev if the source replica and the destination replica are on the different nodes.
-// It returns an address <IP>:<Port> of the rebuilding destination bdev.
-// If the source replica and the destination replicas are on the same node, the rebuilding lvol won't be exposed as a nvmf bdev and <port> will be zero.
-func (c *SPDKClient) ReplicaRebuildingDstStart(replicaName string, exposeRequired bool) (dstRebuildingLvolAddress string, err error) {
+// ReplicaRebuildingDstStart asks the dst replica to create a new head lvol based on the external snapshot of the src replica and blindly expose it as a NVMf bdev.
+// It returns the new head lvol address <IP>:<Port>.
+// Notice that input `srcSnapshotAddress` is the alias of the src snapshot lvol if src and dst have on the same IP, otherwise it's the NVMf address of the src snapshot lvol.
+func (c *SPDKClient) ReplicaRebuildingDstStart(replicaName, srcReplicaName, srcSnapshotName, srcSnapshotLvolAddress string, isSrcDstOnSameHost bool) (dstHeadLvolAddress string, err error) {
 	if replicaName == "" {
 		return "", fmt.Errorf("failed to start replica rebuilding dst: missing required parameter replica name")
+	}
+	if srcReplicaName == "" || srcSnapshotName == "" || srcSnapshotLvolAddress == "" {
+		return "", fmt.Errorf("failed to start replica rebuilding dst: missing required parameter src replica name %v, or src snapshot name %v, or src snapshot lvol address %v", srcReplicaName, srcSnapshotName, srcSnapshotLvolAddress)
 	}
 
 	client := c.getSPDKServiceClient()
@@ -294,16 +300,19 @@ func (c *SPDKClient) ReplicaRebuildingDstStart(replicaName string, exposeRequire
 	defer cancel()
 
 	resp, err := client.ReplicaRebuildingDstStart(ctx, &spdkrpc.ReplicaRebuildingDstStartRequest{
-		Name:           replicaName,
-		ExposeRequired: exposeRequired,
+		Name:                   replicaName,
+		SrcReplicaName:         srcReplicaName,
+		SrcSnapshotName:        srcSnapshotName,
+		SrcSnapshotLvolAddress: srcSnapshotLvolAddress,
+		IsSrcDstOnSameHost:     isSrcDstOnSameHost,
 	})
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to start replica rebuilding dst %s", replicaName)
 	}
-	return resp.Address, nil
+	return resp.DstHeadLvolAddress, nil
 }
 
-func (c *SPDKClient) ReplicaRebuildingDstFinish(replicaName string, unexposeRequired bool) error {
+func (c *SPDKClient) ReplicaRebuildingDstFinish(replicaName string, isSrcDstOnSameHost bool) error {
 	if replicaName == "" {
 		return fmt.Errorf("failed to finish replica rebuilding dst: missing required parameter replica name")
 	}
@@ -313,8 +322,8 @@ func (c *SPDKClient) ReplicaRebuildingDstFinish(replicaName string, unexposeRequ
 	defer cancel()
 
 	_, err := client.ReplicaRebuildingDstFinish(ctx, &spdkrpc.ReplicaRebuildingDstFinishRequest{
-		Name:             replicaName,
-		UnexposeRequired: unexposeRequired,
+		Name:               replicaName,
+		IsSrcDstOnSameHost: isSrcDstOnSameHost,
 	})
 	return errors.Wrapf(err, "failed to finish replica rebuilding dst %s", replicaName)
 }
@@ -336,20 +345,23 @@ func (c *SPDKClient) ReplicaRebuildingDstSnapshotCreate(name, snapshotName strin
 	return errors.Wrapf(err, "failed to create dst SPDK replica %s rebuilding snapshot %s", name, snapshotName)
 }
 
-func (c *SPDKClient) ReplicaRebuildingDstSnapshotRevert(name, snapshotName string) error {
-	if name == "" || snapshotName == "" {
-		return fmt.Errorf("failed to revert dst SPDK replica rebuilding snapshot: missing required parameter name or snapshot name")
+func (c *SPDKClient) ReplicaRebuildingDstSnapshotRevert(name, snapshotName string) (dstRebuildingLvolAddress string, err error) {
+	if name == "" {
+		return "", fmt.Errorf("failed to revert dst SPDK replica rebuilding snapshot: missing required parameter name")
 	}
 
 	client := c.getSPDKServiceClient()
 	ctx, cancel := context.WithTimeout(context.Background(), GRPCServiceTimeout)
 	defer cancel()
 
-	_, err := client.ReplicaRebuildingDstSnapshotRevert(ctx, &spdkrpc.SnapshotRequest{
+	resp, err := client.ReplicaRebuildingDstSnapshotRevert(ctx, &spdkrpc.SnapshotRequest{
 		Name:         name,
 		SnapshotName: snapshotName,
 	})
-	return errors.Wrapf(err, "failed to revert dst SPDK replica %s rebuilding snapshot %s", name, snapshotName)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to revert dst SPDK replica %s rebuilding snapshot %s", name, snapshotName)
+	}
+	return resp.DstRebuildingLvolAddress, nil
 }
 
 func (c *SPDKClient) EngineCreate(name, volumeName, frontend string, specSize uint64, replicaAddressMap map[string]string, portCount int32) (*api.Engine, error) {

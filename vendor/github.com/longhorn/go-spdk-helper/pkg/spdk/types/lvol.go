@@ -103,8 +103,19 @@ type BdevLvolCloneRequest struct {
 	CloneName    string `json:"clone_name"`
 }
 
+type BdevLvolCloneBdevRequest struct {
+	Bdev      string `json:"bdev"`
+	LvsName   string `json:"lvs_name"`
+	CloneName string `json:"clone_name"`
+}
+
 type BdevLvolDecoupleParentRequest struct {
 	Name string `json:"name"`
+}
+
+type BdevLvolSetParentRequest struct {
+	LvolName     string `json:"lvol_name"`
+	SnapshotName string `json:"snapshot_name"`
 }
 
 type BdevLvolResizeRequest struct {

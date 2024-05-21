@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
+	"github.com/longhorn/go-spdk-helper/pkg/jsonrpc"
 	"github.com/longhorn/go-spdk-helper/pkg/nvme"
 
 	commonNs "github.com/longhorn/go-common-libs/ns"
@@ -48,4 +49,25 @@ func exposeSnapshotLvolBdev(spdkClient *spdkclient.Client, lvsName, lvolName, ip
 		}
 	}
 	return subsystemNQN, controllerName, nil
+}
+
+// CleanupLvolTree retrieves the lvol tree with BFS. Then do cleanup bottom up
+func CleanupLvolTree(spdkClient *spdkclient.Client, rootLvolName string, bdevLvolMap map[string]*spdktypes.BdevInfo) (err error) {
+	var queue []*spdktypes.BdevInfo
+	if bdevLvolMap[rootLvolName] != nil {
+		queue = []*spdktypes.BdevInfo{bdevLvolMap[rootLvolName]}
+	}
+	for idx := 0; idx < len(queue); idx++ {
+		for _, childLvolName := range queue[idx].DriverSpecific.Lvol.Clones {
+			if bdevLvolMap[childLvolName] != nil {
+				queue = append(queue, bdevLvolMap[childLvolName])
+			}
+		}
+	}
+	for idx := len(queue) - 1; idx >= 0; idx-- {
+		if _, err := spdkClient.BdevLvolDelete(queue[idx].UUID); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
+			return err
+		}
+	}
+	return nil
 }

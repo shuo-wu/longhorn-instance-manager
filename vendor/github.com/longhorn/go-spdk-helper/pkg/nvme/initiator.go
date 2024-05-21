@@ -95,6 +95,23 @@ func (i *Initiator) Suspend(noflush, nolockfs bool) error {
 	return nil
 }
 
+// Resume resumes the device mapper device for the NVMe initiator
+func (i *Initiator) Resume() error {
+	if i.hostProc != "" {
+		lock := nsfilelock.NewLockWithTimeout(util.GetHostNamespacePath(i.hostProc), LockFile, LockTimeout)
+		if err := lock.Lock(); err != nil {
+			return errors.Wrapf(err, "failed to get file lock for initiator %s", i.Name)
+		}
+		defer lock.Unlock()
+	}
+
+	if err := i.resumeLinearDmDevice(); err != nil {
+		return errors.Wrapf(err, "failed to resume device mapper device for NVMe initiator %s", i.Name)
+	}
+
+	return nil
+}
+
 func (i *Initiator) replaceDmDeviceTarget() error {
 	if err := i.suspendLinearDmDevice(true, false); err != nil {
 		return errors.Wrapf(err, "failed to suspend linear dm device for NVMe initiator %s", i.Name)
