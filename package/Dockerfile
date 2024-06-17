@@ -39,9 +39,9 @@ RUN cd /usr/src && \
     make install
 
 # Build TGT
-ENV TGT_COMMIT_ID 3a8bc4823b5390e046f7aa8231ed262c0365c42c
+ENV TGT_COMMIT_ID a4c156828bdc082c5f541215a46800513a0de642
 RUN cd /usr/src && \
-    git clone https://github.com/rancher/tgt.git && \
+    git clone https://github.com/shuo-wu/tgt.git && \
     cd tgt && \
     git checkout ${TGT_COMMIT_ID} && \
     make; \
