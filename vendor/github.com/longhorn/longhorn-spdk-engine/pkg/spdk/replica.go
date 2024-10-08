@@ -205,7 +205,14 @@ func (r *Replica) Sync(spdkClient *spdkclient.Client) (err error) {
 	// It's better to let the server send the update signal
 
 	// This lvol and nvmf subsystem fetch should be protected by replica lock, in case of snapshot operations happened during the sync-up.
-	bdevLvolMap, err := GetBdevLvolMap(spdkClient)
+	replicaLvolFilter := func(bdev *spdktypes.BdevInfo) bool {
+		var lvolName string
+		if len(bdev.Aliases) == 1 {
+			lvolName = spdktypes.GetLvolNameFromAlias(bdev.Aliases[0])
+		}
+		return IsReplicaLvol(r.Name, lvolName) || (r.ActiveChain[0] != nil && r.ActiveChain[0].Name == lvolName)
+	}
+	bdevLvolMap, err := GetBdevLvolMapWithFilter(spdkClient, replicaLvolFilter)
 	if err != nil {
 		return err
 	}
@@ -762,7 +769,14 @@ func (r *Replica) Delete(spdkClient *spdkclient.Client, cleanupRequired bool, su
 
 	// Clean up the valid snapshot tree
 	if len(r.ActiveChain) > 1 {
-		bdevLvolMap, err := GetBdevLvolMap(spdkClient)
+		replicaLvolFilter := func(bdev *spdktypes.BdevInfo) bool {
+			var lvolName string
+			if len(bdev.Aliases) == 1 {
+				lvolName = spdktypes.GetLvolNameFromAlias(bdev.Aliases[0])
+			}
+			return IsReplicaLvol(r.Name, lvolName) || (r.ActiveChain[0] != nil && r.ActiveChain[0].Name == lvolName)
+		}
+		bdevLvolMap, err := GetBdevLvolMapWithFilter(spdkClient, replicaLvolFilter)
 		if err != nil {
 			return err
 		}
@@ -1036,7 +1050,14 @@ func (r *Replica) SnapshotRevert(spdkClient *spdkclient.Client, snapshotName str
 		return nil, err
 	}
 
-	bdevLvolMap, err := GetBdevLvolMap(spdkClient)
+	replicaLvolFilter := func(bdev *spdktypes.BdevInfo) bool {
+		var lvolName string
+		if len(bdev.Aliases) == 1 {
+			lvolName = spdktypes.GetLvolNameFromAlias(bdev.Aliases[0])
+		}
+		return IsReplicaLvol(r.Name, lvolName) || (r.ActiveChain[0] != nil && r.ActiveChain[0].Name == lvolName)
+	}
+	bdevLvolMap, err := GetBdevLvolMapWithFilter(spdkClient, replicaLvolFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -1490,7 +1511,14 @@ func (r *Replica) RebuildingDstFinish(spdkClient *spdkclient.Client) (err error)
 
 	r.doCleanupForRebuildingDst(spdkClient, r.rebuildingDstCache.rebuildingState == types.ProgressStateError)
 
-	bdevLvolMap, err := GetBdevLvolMap(spdkClient)
+	replicaLvolFilter := func(bdev *spdktypes.BdevInfo) bool {
+		var lvolName string
+		if len(bdev.Aliases) == 1 {
+			lvolName = spdktypes.GetLvolNameFromAlias(bdev.Aliases[0])
+		}
+		return IsReplicaLvol(r.Name, lvolName) || (r.ActiveChain[0] != nil && r.ActiveChain[0].Name == lvolName)
+	}
+	bdevLvolMap, err := GetBdevLvolMapWithFilter(spdkClient, replicaLvolFilter)
 	if err != nil {
 		return err
 	}
@@ -1891,19 +1919,19 @@ func (r *Replica) BackupRestore(spdkClient *spdkclient.Client, backupUrl, snapsh
 	backupType, err := butil.CheckBackupType(backupUrl)
 	if err != nil {
 		err = errors.Wrapf(err, "failed to check the type for restoring backup %v", backupUrl)
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, err.Error())
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "%v", err)
 	}
 
 	err = butil.SetupCredential(backupType, credential)
 	if err != nil {
 		err = errors.Wrapf(err, "failed to setup credential for restoring backup %v", backupUrl)
-		return grpcstatus.Errorf(grpccodes.Internal, err.Error())
+		return grpcstatus.Errorf(grpccodes.Internal, "%v", err)
 	}
 
 	backupName, _, _, err := backupstore.DecodeBackupURL(util.UnescapeURL(backupUrl))
 	if err != nil {
 		err = errors.Wrapf(err, "failed to decode backup url %v", backupUrl)
-		return grpcstatus.Errorf(grpccodes.InvalidArgument, err.Error())
+		return grpcstatus.Errorf(grpccodes.InvalidArgument, "%v", err)
 	}
 
 	if r.restore == nil {
@@ -1927,7 +1955,7 @@ func (r *Replica) BackupRestore(spdkClient *spdkclient.Client, backupUrl, snapsh
 		r.restore, err = NewRestore(spdkClient, lvolName, snapshotName, backupUrl, backupName, r)
 		if err != nil {
 			err = errors.Wrap(err, "failed to start new restore")
-			return grpcstatus.Errorf(grpccodes.Internal, err.Error())
+			return grpcstatus.Errorf(grpccodes.Internal, "%v", err)
 		}
 	} else {
 		r.log.Infof("Resetting the restore for backup %v", backupUrl)
