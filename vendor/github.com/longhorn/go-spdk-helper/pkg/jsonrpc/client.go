@@ -159,6 +159,12 @@ func (c *Client) handleShutdown() {
 func (c *Client) handleSend(msgWrapper *messageWrapper) {
 	id := c.idCounter
 
+	t := time.Now()
+	loggingRequired := false
+	method := msgWrapper.method
+	if method != "bdev_get_bdevs" && method != "bdev_lvol_get_snapshot_checksum" && method != "bdev_lvol_get_lvols" && method != "bdev_lvol_get_xattr" && method != "nvmf_get_subsystems" && method != "bdev_lvol_get_lvstores" {
+		loggingRequired = true
+	}
 	if err := c.encoder.Encode(NewMessage(id, msgWrapper.method, msgWrapper.params)); err != nil {
 		logrus.WithError(err).Errorf("Failed to encode during handleSend")
 
@@ -166,6 +172,14 @@ func (c *Client) handleSend(msgWrapper *messageWrapper) {
 		c.encoder = json.NewEncoder(c.conn)
 		c.encoder.SetIndent("", "\t")
 		return
+	}
+
+	elapsedTime := time.Since(t)
+	if loggingRequired {
+		logrus.Infof("Sent message with time %v ms, id %v, method %s, params %+v", elapsedTime.Milliseconds(), id, method, msgWrapper.params)
+	}
+	if elapsedTime > 100*time.Millisecond {
+		logrus.Infof("Sent message with a long time %v ms, id %v, method %s, params %+v", elapsedTime.Milliseconds(), id, method, msgWrapper.params)
 	}
 
 	c.idCounter++
@@ -244,6 +258,7 @@ func (c *Client) read() {
 func (c *Client) SendMsgAsyncWithTimeout(method string, params interface{}, timeout time.Duration) (res []byte, err error) {
 	var resp *Response
 
+	startTime := time.Now()
 	defer func() {
 		if err != nil {
 			id := uint32(0)
@@ -256,6 +271,10 @@ func (c *Client) SendMsgAsyncWithTimeout(method string, params interface{}, time
 				Params:      params,
 				ErrorDetail: err,
 			}
+		}
+		timeElapsed := time.Since(startTime)
+		if timeElapsed >= 1*time.Second {
+			logrus.Infof("SendMsgAsyncWithTimeout method %s, params %+v, time elapsed %v, resp %+v, err %v", method, params, timeElapsed, resp, err)
 		}
 	}()
 

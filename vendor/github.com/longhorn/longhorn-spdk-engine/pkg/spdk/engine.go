@@ -1523,8 +1523,6 @@ func retrieveRebuildingSnapshotList(rpcSrcReplica *api.Replica, currentSnapshotN
 }
 
 func (e *Engine) ReplicaDelete(spdkClient *spdkclient.Client, replicaName, replicaAddress string) (err error) {
-	e.log.Infof("Deleting replica %s with address %s from engine", replicaName, replicaAddress)
-
 	e.Lock()
 	defer e.Unlock()
 
@@ -1536,6 +1534,8 @@ func (e *Engine) ReplicaDelete(spdkClient *spdkclient.Client, replicaName, repli
 			}
 		}
 	}
+	e.log.Infof("Deleting replica %s with address %s from engine", replicaName, replicaAddress)
+
 	if replicaName == "" {
 		return fmt.Errorf("cannot find replica name with address %s for engine %s replica delete", replicaAddress, e.Name)
 	}
@@ -1551,6 +1551,7 @@ func (e *Engine) ReplicaDelete(spdkClient *spdkclient.Client, replicaName, repli
 	if _, err := spdkClient.BdevRaidRemoveBaseBdev(replicaStatus.BdevName); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
 		return errors.Wrapf(err, "failed to remove base bdev %s for deleting replica %s", replicaStatus.BdevName, replicaName)
 	}
+	e.log.Infof("Removed base bdev %v from engine", replicaStatus.BdevName)
 
 	controllerName := helperutil.GetNvmeControllerNameFromNamespaceName(replicaStatus.BdevName)
 	// Fallback to use replica name. Make sure there won't be a leftover controller even if somehow `replicaStatus.BdevName` has no record
@@ -1565,6 +1566,8 @@ func (e *Engine) ReplicaDelete(spdkClient *spdkclient.Client, replicaName, repli
 	}
 
 	delete(e.ReplicaStatusMap, replicaName)
+
+	e.log.Infof("Removed replica %s (with base bdev name %s) and detached the corresponding controller %s from engine", replicaName, replicaStatus.BdevName, controllerName)
 
 	if errUpdateLogger := e.log.UpdateLogger(logrus.Fields{
 		"replicaStatusMap": e.ReplicaStatusMap,
