@@ -9,8 +9,9 @@ GIT_TAG=$(git tag -l --contains HEAD | head -n 1)
 
 if [[ -z "$DIRTY" && -n "$GIT_TAG" ]]; then
     VERSION=$GIT_TAG
+    IMAGE_TAG_PREFIX=$GIT_TAG
 else
-    VERSION="${COMMIT}${DIRTY}"
+    IMAGE_TAG_PREFIX="$(git rev-parse --short HEAD)${DIRTY}"
 fi
 
 GITCOMMIT=$(git rev-parse HEAD)

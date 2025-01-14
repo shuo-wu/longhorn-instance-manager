@@ -29,7 +29,7 @@ fi
 cp -r bin package/
 
 APIVERSION=`./bin/longhorn-instance-manager version --client-only|jq ".clientVersion.instanceManagerAPIVersion"`
-TAG=${TAG:-v${APIVERSION}_`date -u +%Y%m%d`}
+TAG=${TAG:-${IMAGE_TAG_PREFIX}}
 REPO=${REPO:-longhornio}
 IMAGE=${REPO}/${PROJECT}:${TAG}
 
