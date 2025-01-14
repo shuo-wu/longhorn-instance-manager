@@ -117,8 +117,20 @@ func connectNVMfBdev(spdkClient *spdkclient.Client, controllerName, address stri
 		return "", fmt.Errorf("controllerName or address is empty")
 	}
 
+	defer func() {
+		if err != nil {
+			if _, err := spdkClient.BdevNvmeDetachController(controllerName); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
+				logrus.WithError(err).Errorf("Failed to detach NVMe controller %s after failing at attaching it", controllerName)
+			}
+		}
+	}()
+
 	ip, port, err := net.SplitHostPort(address)
 	if err != nil {
+		return "", err
+	}
+
+	if _, err := spdkClient.BdevNvmeDetachController(controllerName); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
 		return "", err
 	}
 
