@@ -262,6 +262,24 @@ func (c *ControllerClient) VolumeSnapshotMaxSizeSet(size int64) error {
 	return nil
 }
 
+func (c *ControllerClient) VolumeIO(ioType string, inputData string, offset, length int64) (outputData []byte, size int64, err error) {
+	controllerServiceClient := c.getControllerServiceClient()
+	ctx, cancel := context.WithTimeout(context.Background(), GRPCServiceTimeout)
+	defer cancel()
+
+	reply, err := controllerServiceClient.VolumeIO(ctx, &enginerpc.VolumeIORequest{
+		Type:   ioType,
+		Data:   inputData,
+		Offset: offset,
+		Length: length,
+	})
+	if err != nil {
+		return nil, 0, errors.Wrapf(err, "failed to do %v IO for volume %v", ioType, c.serviceURL)
+	}
+
+	return reply.Data, reply.Size, nil
+}
+
 func (c *ControllerClient) ReplicaList() ([]*types.ControllerReplicaInfo, error) {
 	controllerServiceClient := c.getControllerServiceClient()
 	ctx, cancel := context.WithTimeout(context.Background(), GRPCServiceTimeout)
