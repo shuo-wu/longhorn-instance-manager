@@ -21,7 +21,6 @@ import (
 
 	commonbitmap "github.com/longhorn/go-common-libs/bitmap"
 	commonnet "github.com/longhorn/go-common-libs/net"
-	commontypes "github.com/longhorn/go-common-libs/types"
 	commonutils "github.com/longhorn/go-common-libs/utils"
 	spdkclient "github.com/longhorn/go-spdk-helper/pkg/spdk/client"
 	spdktypes "github.com/longhorn/go-spdk-helper/pkg/spdk/types"
@@ -1387,7 +1386,7 @@ func (e *Engine) replicaShallowCopy(dstReplicaServiceCli *client.SPDKClient, src
 					}
 					e.log.Infof("Shallow copied snapshot %s", shallowCopyStatus.SnapshotName)
 					finished = true
-					break
+					break // nolint: staticcheck
 				}
 			}
 		}
@@ -1621,7 +1620,7 @@ func (e *Engine) SnapshotPurge(spdkClient *spdkclient.Client) (err error) {
 }
 
 func (e *Engine) SnapshotHash(spdkClient *spdkclient.Client, snapshotName string, rehash bool) (err error) {
-	e.log.Infof("Hashing snapshots")
+	e.log.Infof("Hashing snapshot")
 
 	_, err = e.snapshotOperation(spdkClient, snapshotName, SnapshotOperationHash, rehash)
 	return err
@@ -1629,28 +1628,6 @@ func (e *Engine) SnapshotHash(spdkClient *spdkclient.Client, snapshotName string
 
 func (e *Engine) snapshotOperation(spdkClient *spdkclient.Client, inputSnapshotName string, snapshotOp SnapshotOperationType, opts any) (snapshotName string, err error) {
 	updateRequired := false
-
-	if snapshotOp == SnapshotOperationCreate {
-		e.RLock()
-		devicePath := ""
-		if e.State == types.InstanceStateRunning && e.Frontend == types.FrontendSPDKTCPBlockdev {
-			devicePath = e.Endpoint
-		}
-		e.RUnlock()
-		if devicePath != "" {
-			ne, err := helperutil.NewExecutor(commontypes.HostProcDirectory)
-			if err != nil {
-				e.log.WithError(err).Errorf("WARNING: failed to get the executor for snapshot op %v with snapshot %s, will skip the sync and continue", snapshotOp, inputSnapshotName)
-			} else {
-				e.log.Infof("Requesting system sync %v before snapshot", devicePath)
-				// TODO: only sync the device path rather than all filesystems
-				if _, err := ne.Execute(nil, "sync", []string{}, SyncTimeout); err != nil {
-					// sync should never fail though, so it more like due to the nsenter
-					e.log.WithError(err).Errorf("WARNING: failed to sync for snapshot op %v with snapshot %s, will skip the sync and continue", snapshotOp, inputSnapshotName)
-				}
-			}
-		}
-	}
 
 	e.Lock()
 	defer func() {
@@ -1690,6 +1667,23 @@ func (e *Engine) snapshotOperation(spdkClient *spdkclient.Client, inputSnapshotN
 			}
 		}
 	}()
+
+	if snapshotOp == SnapshotOperationCreate {
+		// Pause the IO, flush outstanding IO and attempt to synchronize filesystem by suspending the NVMe initiator
+		if e.Frontend == types.FrontendSPDKTCPBlockdev && e.Endpoint != "" {
+			e.log.Infof("Requesting initiator suspend before to create snapshot %s", snapshotName)
+			if err = e.initiator.Suspend(false, false); err != nil {
+				return "", errors.Wrapf(err, "failed to suspend NVMe initiator before the creation of snapshot %s", snapshotName)
+			}
+			defer func() {
+				if resumeErr := e.initiator.Resume(); resumeErr != nil {
+					e.log.Errorf("Error resuming initiator after the creation of snapshot %s", snapshotName)
+					engineErr = errors.Wrapf(resumeErr, "failed to resume NVMe initiator after the creation of snapshot %s", snapshotName)
+					return
+				}
+			}()
+		}
+	}
 
 	updateRequired, replicasErr, engineErr = e.snapshotOperationWithoutLock(spdkClient, replicaClients, snapshotName, snapshotOp, opts)
 	if replicasErr != nil {
@@ -2198,7 +2192,11 @@ func (e *Engine) isReplicaRestoreCompleted(replicaName, replicaAddress string) (
 	if err != nil {
 		return false, errors.Wrapf(err, "failed to get replica %v service client %s", replicaName, replicaAddress)
 	}
-	defer replicaServiceCli.Close()
+	defer func() {
+		if errClose := replicaServiceCli.Close(); errClose != nil {
+			log.WithError(errClose).Errorf("Failed to close replica %s client with address %s during check restore status", replicaName, replicaAddress)
+		}
+	}()
 
 	status, err := replicaServiceCli.ReplicaRestoreStatus(replicaName)
 	if err != nil {

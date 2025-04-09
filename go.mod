@@ -5,25 +5,25 @@ go 1.23.0
 toolchain go1.24.1
 
 replace (
-	github.com/longhorn/longhorn-spdk-engine => github.com/shuo-wu/longhorn-spdk-engine v0.0.0-20250401181205-6f454815a45c
+	github.com/longhorn/longhorn-spdk-engine => github.com/shuo-wu/longhorn-spdk-engine v0.0.0-20250409000247-3558bcffddee
 	github.com/longhorn/types => github.com/shuo-wu/types v0.0.0-20250318192055-112d63e40c32
 )
 
 require (
 	github.com/google/uuid v1.6.0
-	github.com/longhorn/backupstore v0.0.0-20250315040513-2fb98aebc16a
-	github.com/longhorn/go-common-libs v0.0.0-20250319033109-764d1dea35f3
-	github.com/longhorn/go-spdk-helper v0.0.2-0.20250317050445-36b195dfc91f
+	github.com/longhorn/backupstore v0.0.0-20250331142654-de3610ff9c89
+	github.com/longhorn/go-common-libs v0.0.0-20250401013213-15c69217876e
+	github.com/longhorn/go-spdk-helper v0.0.2-0.20250402013425-f54098d7face
 	github.com/longhorn/longhorn-engine v1.9.0-dev-20250223.0.20250225091521-921f63f3a87d
 	github.com/longhorn/longhorn-spdk-engine v0.0.0-20250307042641-6bced35f0eac
-	github.com/longhorn/types v0.0.0-20250311092239-23a07a51e0ba
+	github.com/longhorn/types v0.0.0-20250407153258-74fbf95c1346
 	github.com/pkg/errors v0.9.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.16
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 	golang.org/x/sync v0.12.0
-	google.golang.org/grpc v1.71.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/grpc v1.71.1
+	google.golang.org/protobuf v1.36.6
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c
 	k8s.io/mount-utils v0.32.3
 )

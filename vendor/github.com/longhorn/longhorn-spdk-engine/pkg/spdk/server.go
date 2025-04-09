@@ -528,7 +528,7 @@ func (s *Server) ReplicaGet(ctx context.Context, req *spdkrpc.ReplicaGetRequest)
 	s.RUnlock()
 
 	if r == nil {
-		return nil, grpcstatus.Errorf(grpccodes.NotFound, "cannot find replica %v (%+v)", req.Name, s.replicaMap)
+		return nil, grpcstatus.Errorf(grpccodes.NotFound, "cannot find replica %v", req.Name)
 	}
 
 	return r.Get(), nil
@@ -1067,7 +1067,7 @@ func (s *Server) EngineDeleteTarget(ctx context.Context, req *spdkrpc.EngineDele
 			s.Lock()
 			// Only delete the engine if both initiator (e.Port) and target (e.TargetPort) are not exists.
 			if e.Port == 0 && e.TargetPort == 0 {
-				e.log.Info("Deleting engine %s", req.Name)
+				e.log.Infof("Deleting engine %s", req.Name)
 				delete(s.engineMap, req.Name)
 			}
 			s.Unlock()

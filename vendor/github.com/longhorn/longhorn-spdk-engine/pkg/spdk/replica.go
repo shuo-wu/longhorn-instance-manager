@@ -922,6 +922,20 @@ func (r *Replica) Delete(spdkClient *spdkclient.Client, cleanupRequired bool, su
 		return fmt.Errorf("waiting for volume restoration to stop")
 	}
 
+	for snapLvolName, snapLvol := range r.SnapshotLvolMap {
+		hashStatusValue, exists := r.SnapshotLvolHashStatusMap.Load(snapLvolName)
+		if !exists {
+			continue
+		}
+		hashStatus := hashStatusValue.(LvolHashStatus)
+		if hashStatus.State == types.ProgressStateInProgress {
+			r.log.Infof("Stopping snapshot checksum calculation for %s before replica deletion with cleanup %v", snapLvolName, cleanupRequired)
+			if _, err := spdkClient.BdevLvolStopSnapshotChecksum(snapLvol.Alias); !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
+				return err
+			}
+		}
+	}
+
 	if r.IsExposed {
 		r.log.Info("Unexposing bdev for replica deletion")
 		if err := spdkClient.StopExposeBdev(helpertypes.GetNQN(r.Name)); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
@@ -1121,8 +1135,17 @@ func (r *Replica) SnapshotDelete(spdkClient *spdkclient.Client, snapshotName str
 		}
 	}()
 
-	// TODO: Stop the in-progress snapshot checksum calculation
-	r.SnapshotLvolHashStatusMap.Delete(snapSvcLvol.Name)
+	if hashStatusValue, exists := r.SnapshotLvolHashStatusMap.Load(snapLvolName); exists {
+		hashStatus := hashStatusValue.(LvolHashStatus)
+		if hashStatus.State == types.ProgressStateInProgress {
+			r.log.Infof("Stopping snapshot checksum calculation for %s before snapshot %s deletion", snapLvolName, snapshotName)
+			if _, err := spdkClient.BdevLvolStopSnapshotChecksum(snapSvcLvol.Alias); !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
+				return nil, errors.Wrapf(err, "failed to stop snapshot checksum calculation for %s before snapshot %s deletion", snapLvolName, snapshotName)
+			}
+		}
+		r.SnapshotLvolHashStatusMap.Delete(snapSvcLvol.Name)
+	}
+
 	if _, err := spdkClient.BdevLvolDelete(snapSvcLvol.UUID); err != nil && !jsonrpc.IsJSONRPCRespErrorNoSuchDevice(err) {
 		return nil, err
 	}
@@ -1635,7 +1658,7 @@ func (r *Replica) RebuildingSrcShallowCopyStart(spdkClient *spdkclient.Client, s
 				case <-timer.C:
 					r.log.Errorf("Timeout waiting for the src replica %s shallow copy %v complete before detaching the rebuilding lvol of the dst replica %s, will give up", r.Name, shallowCopyOpID, r.rebuildingSrcCache.dstReplicaName)
 					stopWaiting = true
-					break
+					break // nolint: staticcheck
 				case <-ticker.C:
 					r.Lock()
 					if r.rebuildingSrcCache.shallowCopyOpID != shallowCopyOpID || r.rebuildingSrcCache.shallowCopySnapshotName != snapshotName {
@@ -1658,7 +1681,7 @@ func (r *Replica) RebuildingSrcShallowCopyStart(spdkClient *spdkclient.Client, s
 					continuousRetryCount = 0
 					if status.State == types.ProgressStateError || status.State == types.ProgressStateComplete {
 						stopWaiting = true
-						break
+						break // nolint: staticcheck
 					}
 				}
 			}
