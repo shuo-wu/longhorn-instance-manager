@@ -508,7 +508,7 @@ func (c *ReplicaClient) LaunchReceiver(toFilePath string) (string, int32, error)
 	return c.host, reply.Port, nil
 }
 
-func (c *ReplicaClient) SyncFiles(fromAddress string, list []types.SyncFileInfo, fileSyncHTTPClientTimeout int, fastSync bool, grpcTimeoutSeconds int64, localSync *types.FileLocalSync) error {
+func (c *ReplicaClient) SyncFiles(fromAddressMap map[string]bool, list []types.SyncFileInfo, fileSyncHTTPClientTimeout int, fastSync bool, grpcTimeoutSeconds int64, localSync *types.FileLocalSync) error {
 	syncAgentServiceClient, err := c.getSyncServiceClient()
 	if err != nil {
 		return err
@@ -521,7 +521,7 @@ func (c *ReplicaClient) SyncFiles(fromAddress string, list []types.SyncFileInfo,
 	defer cancel()
 
 	fileSyncRequest := &enginerpc.FilesSyncRequest{
-		FromAddress:               fromAddress,
+		FromAddressMap:            fromAddressMap,
 		ToHost:                    c.host,
 		SyncFileInfoList:          syncFileInfoListToSyncAgentGRPCFormat(list),
 		FastSync:                  fastSync,

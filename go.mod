@@ -4,6 +4,11 @@ go 1.24.0
 
 toolchain go1.25.3
 
+replace (
+	github.com/longhorn/longhorn-engine => github.com/shuo-wu/longhorn-engine v0.4.1-0.20251107204937-6cd68203655b
+	github.com/longhorn/types => github.com/shuo-wu/types v0.0.0-20251107204539-ff789cd972f8
+)
+
 require (
 	github.com/cockroachdb/errors v1.12.0
 	github.com/google/uuid v1.6.0
