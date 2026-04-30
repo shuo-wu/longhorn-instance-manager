@@ -27,8 +27,12 @@ type Replica struct {
 	State            string           `json:"state"`
 	ErrorMsg         string           `json:"error_msg"`
 	Rebuilding       bool             `json:"rebuilding"`
-	BackingImageName string           `json:"backing_image_name"`
-	UUID             string           `json:"uuid"`
+	BackingImageName       string           `json:"backing_image_name"`
+	UUID                  string           `json:"uuid"`
+	IsCloneReplica        bool             `json:"is_clone_replica"`
+	CloneSourceReplicaName string          `json:"clone_source_replica_name"`
+	CloneEntrypointLvolName string         `json:"clone_entrypoint_lvol_name"`
+	CloneEntrypointMap    map[string]int32 `json:"clone_entrypoint_map"`
 }
 
 type Lvol struct {
@@ -109,6 +113,16 @@ func ProtoReplicaToReplica(r *spdkrpc.Replica) *Replica {
 		res.BackingImageName = r.BackingImageName
 	}
 
+	res.IsCloneReplica = r.IsCloneReplica
+	res.CloneSourceReplicaName = r.CloneSourceReplicaName
+	res.CloneEntrypointLvolName = r.CloneEntrypointLvolName
+	if len(r.CloneEntrypointMap) > 0 {
+		res.CloneEntrypointMap = make(map[string]int32, len(r.CloneEntrypointMap))
+		for k, v := range r.CloneEntrypointMap {
+			res.CloneEntrypointMap[k] = v
+		}
+	}
+
 	return res
 }
 
@@ -137,6 +151,16 @@ func ReplicaToProtoReplica(r *Replica) *spdkrpc.Replica {
 
 	if r.BackingImageName != "" {
 		res.BackingImageName = r.BackingImageName
+	}
+
+	res.IsCloneReplica = r.IsCloneReplica
+	res.CloneSourceReplicaName = r.CloneSourceReplicaName
+	res.CloneEntrypointLvolName = r.CloneEntrypointLvolName
+	if len(r.CloneEntrypointMap) > 0 {
+		res.CloneEntrypointMap = make(map[string]int32, len(r.CloneEntrypointMap))
+		for k, v := range r.CloneEntrypointMap {
+			res.CloneEntrypointMap[k] = v
+		}
 	}
 	return res
 }
