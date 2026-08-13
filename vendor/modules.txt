@@ -235,7 +235,7 @@ github.com/longhorn/go-common-libs/sync
 github.com/longhorn/go-common-libs/sys
 github.com/longhorn/go-common-libs/types
 github.com/longhorn/go-common-libs/utils
-# github.com/longhorn/go-iscsi-helper v0.0.0-20250111093313-7e1930499625
+# github.com/longhorn/go-iscsi-helper v0.0.0-20250111093313-7e1930499625 => github.com/shuo-wu/go-iscsi-helper v0.0.0-20260813013030-f1e9c7ab5ac9
 ## explicit; go 1.22.7
 github.com/longhorn/go-iscsi-helper/iscsi
 github.com/longhorn/go-iscsi-helper/iscsidev
@@ -251,7 +251,7 @@ github.com/longhorn/go-spdk-helper/pkg/spdk/setup
 github.com/longhorn/go-spdk-helper/pkg/spdk/types
 github.com/longhorn/go-spdk-helper/pkg/types
 github.com/longhorn/go-spdk-helper/pkg/util
-# github.com/longhorn/longhorn-engine v1.9.0-dev-20241215.0.20250225130735-e63c1afeb26b
+# github.com/longhorn/longhorn-engine v1.9.0-dev-20241215.0.20250225130735-e63c1afeb26b => github.com/shuo-wu/longhorn-engine v1.8.2-0.20260813013918-0d381f96398a
 ## explicit; go 1.23.0
 github.com/longhorn/longhorn-engine/pkg/backingfile
 github.com/longhorn/longhorn-engine/pkg/controller/client
@@ -816,3 +816,5 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 sigs.k8s.io/yaml/goyaml.v2
+# github.com/longhorn/go-iscsi-helper => github.com/shuo-wu/go-iscsi-helper v0.0.0-20260813013030-f1e9c7ab5ac9
+# github.com/longhorn/longhorn-engine => github.com/shuo-wu/longhorn-engine v1.8.2-0.20260813013918-0d381f96398a

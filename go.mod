@@ -4,6 +4,11 @@ go 1.23.0
 
 toolchain go1.23.6
 
+replace (
+	github.com/longhorn/go-iscsi-helper => github.com/shuo-wu/go-iscsi-helper v0.0.0-20260813013030-f1e9c7ab5ac9
+	github.com/longhorn/longhorn-engine => github.com/shuo-wu/longhorn-engine v1.8.2-0.20260813013918-0d381f96398a
+)
+
 require (
 	github.com/google/uuid v1.6.0
 	github.com/longhorn/backupstore v0.0.0-20250227220202-651bd33886fe

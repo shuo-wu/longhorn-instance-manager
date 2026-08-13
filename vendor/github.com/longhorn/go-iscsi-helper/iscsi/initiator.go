@@ -113,6 +113,7 @@ func LoginTarget(ip, target string, nsexec *lhns.Executor) error {
 		"-T", target,
 		"-p", ip,
 		"--login",
+		"-W",
 	}
 	_, err := nsexec.Execute(nil, iscsiBinary, opts, lhtypes.ExecuteDefaultTimeout)
 	if err != nil {
