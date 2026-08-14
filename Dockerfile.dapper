@@ -44,8 +44,8 @@ RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/i
 
 # Install libqcow to resolve error:
 #   vendor/github.com/longhorn/longhorn-engine/pkg/qcow/libqcow.go:6:11: fatal error: libqcow.h: No such file or directory
-RUN curl -sSfL https://s3-us-west-1.amazonaws.com/rancher-longhorn/libqcow-alpha-20181117.tar.gz | tar xvzf - -C /usr/src && \
-    cd /usr/src/libqcow-20181117 && \
+RUN curl -sSfL https://github.com/longhorn/libqcow/archive/refs/tags/v1.0.0.tar.gz | tar xvzf - -C /usr/src && \
+    cd /usr/src/libqcow-1.0.0 && \
     ./configure && \
     make -j$(nproc) && \
     make install && \
