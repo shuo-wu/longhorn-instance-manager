@@ -16,7 +16,7 @@ ENV GOLANG_ARCH_amd64=amd64 GOLANG_ARCH_arm64=arm64 GOLANG_ARCH_s390x=s390x GOLA
 RUN go install golang.org/x/lint/golint@latest
 
 # If TAG is explicitly set and exists in the repo, switch to the tag
-RUN git clone https://github.com/longhorn/dep-versions.git -b ${SRC_BRANCH} /usr/src/dep-versions && \
+RUN git clone https://github.com/shuo-wu/dep-versions.git -b feat/13796-rdma /usr/src/dep-versions && \
     cd /usr/src/dep-versions && \
     if [ -n "${SRC_TAG}" ] && git show-ref --tags ${SRC_TAG} > /dev/null 2>&1; then \
         echo "Checking out tag ${SRC_TAG}"; \
@@ -57,7 +57,7 @@ RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python && \
     ln -sf /usr/bin/pip3.11 /usr/local/bin/pip
 
 # Install dependencies defined in dep-versions
-RUN git clone https://github.com/longhorn/dep-versions.git -b ${SRC_BRANCH} /usr/src/dep-versions && \
+RUN git clone https://github.com/shuo-wu/dep-versions.git -b feat/13796-rdma /usr/src/dep-versions && \
     cd /usr/src/dep-versions && \
     if [ -n "${SRC_TAG}" ] && git show-ref --tags ${SRC_TAG} > /dev/null 2>&1; then \
         echo "Checking out tag ${SRC_TAG}"; \

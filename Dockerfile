@@ -29,7 +29,7 @@ RUN zypper -n ref && \
 # Copy golangci-lint binary from official image
 COPY --from=golangci-lint /usr/bin/golangci-lint /usr/local/bin/golangci-lint
 
-RUN git clone https://github.com/longhorn/dep-versions.git -b ${SRC_BRANCH} /usr/src/dep-versions && \
+RUN git clone https://github.com/shuo-wu/dep-versions.git -b feat/13796-rdma /usr/src/dep-versions && \
     cd /usr/src/dep-versions && \
     if [ -n "${SRC_TAG}" ] && git show-ref --tags ${SRC_TAG} > /dev/null 2>&1; then \
         echo "Checking out tag ${SRC_TAG}"; \
